@@ -1,67 +1,50 @@
+from datetime import datetime
+
 class Validator:
     """
     Validator class to check validity of different sensor data readings.
-    Each method returns True if data is valid, False otherwise.
+    Each method returns a dictionary with:
+    {
+        "valid": True/False,
+        "message": "Explanation"
+    }
     """
 
     def validate_temperature(self, temp):
-        """
-        Validate temperature:
-        - Must be int or float
-        - Must be within realistic range (-50 to 80 °C)
-        """
         if not isinstance(temp, (int, float)):
-            return False
+            return {"valid": False, "message": "Temperature must be a number."}
         if temp < -50 or temp > 80:
-            return False
-        return True
+            return {"valid": False, "message": "Temperature out of realistic range (-50 to 80 °C)."}
+        return {"valid": True, "message": "Valid temperature."}
 
     def validate_humidity(self, humidity):
-        """
-        Validate humidity:
-        - Must be int or float
-        - Must be within range 0 to 100 (%)
-        """
         if not isinstance(humidity, (int, float)):
-            return False
+            return {"valid": False, "message": "Humidity must be a number."}
         if humidity < 0 or humidity > 100:
-            return False
-        return True
+            return {"valid": False, "message": "Humidity out of range (0–100%)."}
+        return {"valid": True, "message": "Valid humidity."}
 
     def validate_pressure(self, pressure):
-        """
-        Validate barometric pressure:
-        - Must be int or float
-        - Must be within expected atmospheric range (e.g., 300 to 1100 hPa)
-        """
         if not isinstance(pressure, (int, float)):
-            return False
+            return {"valid": False, "message": "Pressure must be a number."}
         if pressure < 300 or pressure > 1100:
-            return False
-        return True
+            return {"valid": False, "message": "Pressure out of expected range (300–1100 hPa)."}
+        return {"valid": True, "message": "Valid pressure."}
 
     def validate_rainfall(self, rainfall):
-        """
-        Validate rainfall sensor reading:
-        - Must be int or float
-        - Must be >= 0 (no negative rainfall)
-        """
         if not isinstance(rainfall, (int, float)):
-            return False
+            return {"valid": False, "message": "Rainfall must be a number."}
         if rainfall < 0:
-            return False
-        return True
+            return {"valid": False, "message": "Rainfall cannot be negative."}
+        return {"valid": True, "message": "Valid rainfall."}
 
     def validate_gps_coordinates(self, lat, lon):
-        """
-        Validate GPS coordinates:
-        - Latitude must be float between -90 and 90
-        - Longitude must be float between -180 and 180
-        """
         if not (isinstance(lat, (int, float)) and isinstance(lon, (int, float))):
-            return False
+            return {"valid": False, "message": "Latitude and longitude must be numbers."}
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            return False
-        return True
+            return {"valid": False, "message": "GPS coordinates out of range."}
+        return {"valid": True, "message": "Valid GPS coordinates."}
 
     
+
+
