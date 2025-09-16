@@ -20,3 +20,31 @@ This project focuses on building an IoT-based system for real-time monitoring an
 4. Provides tools to standardize text formatting, including case normalization and special character removal.
 
 5. Enables syncing of the cleaned dataset back to MongoDB by replacing old records with the new, cleaned data, ensuring the database stays up-to-date.
+
+## 📦Dependencies
+
+Make sure you have Python 3.8+ installed. You’ll also need to install the following Python libraries:
+
+pymongo → for connecting to MongoDB
+
+tabulate → for displaying tabular data neatly
+
+numpy → for numerical computations
+
+statsmodels → for ARIMA time series modeling
+
+matplotlib → for data visualization
+
+### Additionally, the project uses Python’s built-in libraries:
+
+datetime
+
+timedelta
+
+And a custom module:
+
+Connections (must contain the function return_documents)
+
+### To download: 
+
+Use (py -m install pymongo OR python -m install pymongo OR pip -m install pymongo) this is all dependent on your PC
