@@ -9,3 +9,26 @@ This project focuses on building an IoT-based system for real-time monitoring an
 -Fetching documents from any collection within the default database, with optional limits on the number of documents retrieved.
 
 -Displaying documents in a readable, tabular format using the tabulate library for easy inspection and debugging.
+
+## API
+
+### 🛠️ Testing in Postman
+
+Open Postman.
+
+Start your API (Run the file).
+
+Enter one of the endpoints (e.g., http://127.0.0.1:5000/collections/ESP32_data).
+
+Click Send.
+
+The results will appear in JSON format.
+
+### 🛠️ What needs to be installed
+
+py -m pip install flask
+
+py -m pip install pymongo
+
+py -m pip install bson
+

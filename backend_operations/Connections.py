@@ -34,3 +34,5 @@ def show_documents(collection_name, limit=None):
     rows = [doc.values() for doc in documents]
     print(f"Documents in collection '{collection_name}':")
     print(tabulate(rows, headers=headers, tablefmt="grid"))
+
+show_documents("ESP32_data")
