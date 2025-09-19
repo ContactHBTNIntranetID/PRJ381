@@ -14,21 +14,21 @@ This project focuses on building an IoT-based system for real-time monitoring an
 
 ### 🛠️ Testing in Postman
 
-Open Postman.
+    1. Open Postman.
 
-Start your API (Run the file).
+    2. Start your API (Run the file).
 
-Enter one of the endpoints (e.g., http://127.0.0.1:5000/collections/ESP32_data).
+    3. Enter one of the endpoints (e.g., http://127.0.0.1:5000/collections/ESP32_data).
 
-Click Send.
+    4. Click Send.
 
-The results will appear in JSON format.
+    The results will appear in JSON format.
 
 ### 🛠️ What needs to be installed
 
-py -m pip install flask
+    py -m pip install flask
 
-py -m pip install pymongo
+    py -m pip install pymongo
 
-py -m pip install bson
+    py -m pip install bson
 
