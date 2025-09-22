@@ -48,3 +48,13 @@ Connections (must contain the function return_documents)
 ### To download: 
 
 Use (py -m install pymongo OR python -m install pymongo OR pip -m install pymongo) this is all dependent on your PC
+
+## 🌍 Predictive Analysis
+
+Nothing needs to be downloaded unless you have not downloaded from previous sections
+
+This will give you directions from a set location. This has been set to recalculate everytime it meets some solar radiance that doesnt perfectly match the conditions of the solar vehicle. 
+
+This uses a google maps API and an Open Weather Maps API. All of this information is going to be placed in an API for better viewing
+
+
