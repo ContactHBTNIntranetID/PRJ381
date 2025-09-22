@@ -114,6 +114,29 @@ def score_route_with_forecast(route, collection_name):
 
     return score, avg_solar, avg_rain, solar_acc, rain_acc
 
+# ---------------- PRETTY PRINT FUNCTIONS ----------------
+def print_route_details(route, solar, rain, solar_acc, rain_acc):
+    print(f"\n\033[1;34mBest route:\033[0m Solar={solar:.1f}, Rain={rain:.2f}, "
+          f"SolarAcc={solar_acc:.1f}%, RainAcc={rain_acc:.1f}%")
+
+    for leg in route['legs']:
+        total_distance = leg['distance']['text']
+        total_duration = leg['duration']['text']
+        print(f"\n\033[1;32mInitial Best Route:\033[0m")
+        print(f"\033[1;33mOverall Distance: {total_distance} | Travel Time: {total_duration}\033[0m\n")
+
+        for step in leg['steps']:
+            instruction = step['html_instructions'] if isinstance(step, dict) else step
+            step_distance = step.get('distance', {}).get('text', 'N/A') if isinstance(step, dict) else "N/A"
+            step_duration = step.get('duration', {}).get('text', 'N/A') if isinstance(step, dict) else "N/A"
+
+            print(f"➡️  {instruction}")
+            print(f"   📏 Distance: {step_distance} | ⏱ Time: {step_duration}\n")
+
+        print(f"✅ \033[1;35mLeg Summary:\033[0m {total_distance}, {total_duration}\n")
+
+
+
 # ---------------- MAIN ROUTE SELECTION ----------------
 def select_best_route(start, end, collection_name):
     routes = fetch_routes(start, end)
@@ -137,11 +160,12 @@ def select_best_route(start, end, collection_name):
             best_rain_acc = rain_acc
 
     if best_route:
-        print(f"Best route: Solar={best_solar:.1f}, Rain={best_rain:.2f}, SolarAcc={best_solar_acc:.1f}%, RainAcc={best_rain_acc:.1f}%")
+         print_route_details(best_route, best_solar, best_rain, best_solar_acc, best_rain_acc)
     else:
         print("No route meets forecast accuracy threshold.")
 
     return best_route
+
 
 # ---------------- LIVE MONITORING ----------------
 def monitor_and_reroute(current_location, destination, collection_name, iterations=3):
