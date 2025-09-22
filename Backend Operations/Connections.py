@@ -34,3 +34,29 @@ def show_documents(collection_name, limit=None):
     rows = [doc.values() for doc in documents]
     print(f"Documents in collection '{collection_name}':")
     print(tabulate(rows, headers=headers, tablefmt="grid"))
+
+
+#same function just that this one has a return type per line
+def return_documents(collection_name, limit=None):
+    """Return documents from a collection in tabular form."""
+    db = client[DEFAULT_DB]
+    collection = db[collection_name]
+    cursor = collection.find()
+    if limit:
+        cursor = cursor.limit(limit)
+    documents = list(cursor)
+    if not documents:
+        print(f"No documents found in collection '{collection_name}'.")
+        return []
+    # Convert ObjectId to string for display
+    for doc in documents:
+        if '_id' in doc:
+            doc['_id'] = str(doc['_id'])
+    return documents
+
+
+
+
+
+
+
