@@ -169,7 +169,7 @@ def select_best_route(start, end, collection_name):
 
 # ---------------- LIVE MONITORING ----------------
 def monitor_and_reroute(current_location, destination, collection_name, iterations=3):
-    for _ in range(iterations):
+    for _ in range(iterations): #Change this to while(True) When testing with censors
         solar, rain = fetch_live_weather(current_location['lat'], current_location['lon'])
         print(f"Live Solar: {solar:.1f}, Rain: {rain:.2f}")
 
