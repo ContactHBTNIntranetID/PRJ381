@@ -103,7 +103,6 @@ def score_route_with_forecast(route, collection_name):
     if forecast_solar is None or forecast_rain is None:
         return 0, 0, 0, 0, 0
 
-    # Combine forecast + live weather
     live_solar, live_rain = fetch_live_weather(CURRENT_LOCATION['lat'], CURRENT_LOCATION['lon'])
     forecast_solar = np.append(forecast_solar, live_solar)
     forecast_rain = np.append(forecast_rain, live_rain)
