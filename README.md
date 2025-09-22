@@ -10,6 +10,29 @@ This project focuses on building an IoT-based system for real-time monitoring an
 
 -Displaying documents in a readable, tabular format using the tabulate library for easy inspection and debugging.
 
+## API
+
+### 🛠️ Testing in Postman
+
+    1. Open Postman.
+
+    2. Start your API (Run the file).
+
+    3. Enter one of the endpoints (e.g., http://127.0.0.1:5000/collections/ESP32_data).
+
+    4. Click Send.
+
+    The results will appear in JSON format.
+
+### 🛠️ What needs to be installed
+
+    py -m pip install flask
+
+    py -m pip install pymongo
+
+    py -m pip install bson
+
+
 ## Data Cleaning Operations
 1. Handles missing data by offering multiple strategies: dropping rows with missing values or filling missing numeric and categorical data with median and mode, respectively.
 
