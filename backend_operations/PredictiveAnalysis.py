@@ -2,6 +2,7 @@ import requests
 import numpy as np
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from Connections import return_documents
 from statsmodels.tsa.arima.model import ARIMA
 import time
 import sys
@@ -19,10 +20,19 @@ RAIN_THRESHOLD = 1     # mm
 LOW_SOLAR_DURATION = 30  # minutes
 FORECAST_MINUTES_AHEAD = 15  # How far ahead to forecast
 
+API_Instructions = []
+API_TOTAL_DISTANCE = 0
+API_TOTAL_DURATION = 0
+API_SCORE_ACC = 0
+API_AVG_SOLAR = 0
+API_AVG_RAIN = 0
+API_SOLAR_ACC = 0
+API_RAIN_ACC = 0
+
 CURRENT_LOCATION = {"lat": -25.746111, "lon": 28.188056}
 DESTINATION = {"lat": -25.9600, "lon": 28.1500}
 
-from Connections import return_documents
+
 
 # ---------------- WEATHER FUNCTIONS ----------------
 def fetch_live_weather(lat, lon):
@@ -88,12 +98,13 @@ def forecast_weather(documents, minutes_ahead=FORECAST_MINUTES_AHEAD):
         in_sample_rain = model_rain.predict(start=1, end=len(rain)-1)
         mape_rain = np.mean(np.abs((rain[1:] - in_sample_rain) / (rain[1:] + epsilon))) * 100
         rain_accuracy = max(0, min(100, 100 - mape_rain))
-
+    
     return forecast_solar, forecast_rain, solar_accuracy, rain_accuracy
 
 ACCURACY_THRESHOLD = 70  # percent
 
 def score_route_with_forecast(route, collection_name):
+    global API_SCORE_ACC, API_AVG_SOLAR, API_AVG_RAIN, API_SOLAR_ACC, API_RAIN_ACC
     documents = return_documents(collection_name)
     if not documents:
         return 0, 0, 0, 0, 0
@@ -111,10 +122,20 @@ def score_route_with_forecast(route, collection_name):
     avg_rain = np.mean(forecast_rain)
     score = avg_solar - (avg_rain * 100)
 
+    # now actually update globals
+    API_SCORE_ACC = score
+    API_AVG_SOLAR = avg_solar
+    API_AVG_RAIN = avg_rain
+    API_SOLAR_ACC = solar_acc
+    API_RAIN_ACC = rain_acc
+
     return score, avg_solar, avg_rain, solar_acc, rain_acc
 
 # ---------------- PRETTY PRINT FUNCTIONS ----------------
+
+
 def print_route_details(route, solar, rain, solar_acc, rain_acc):
+    global API_Instructions, API_TOTAL_DISTANCE, API_TOTAL_DURATION
     print(f"\n\033[1;34mBest route:\033[0m Solar={solar:.1f}, Rain={rain:.2f}, "
           f"SolarAcc={solar_acc:.1f}%, RainAcc={rain_acc:.1f}%")
 
@@ -130,12 +151,13 @@ def print_route_details(route, solar, rain, solar_acc, rain_acc):
             step_duration = step.get('duration', {}).get('text', 'N/A') if isinstance(step, dict) else "N/A"
 
             print(f"➡️  {instruction}")
+            API_Instructions.append({instruction})
             print(f"   📏 Distance: {step_distance} | ⏱ Time: {step_duration}\n")
 
         print(f"✅ \033[1;35mLeg Summary:\033[0m {total_distance}, {total_duration}\n")
-
-
-
+        API_TOTAL_DISTANCE = total_distance
+        API_TOTAL_DURATION = total_duration
+        
 # ---------------- MAIN ROUTE SELECTION ----------------
 def select_best_route(start, end, collection_name):
     routes = fetch_routes(start, end)
@@ -188,13 +210,34 @@ def monitor_and_reroute(current_location, destination, collection_name, iteratio
         time.sleep(5)  # shorter sleep for testing
 
 # ---------------- EXECUTE ----------------
-if __name__ == "__main__":
-    best_route = select_best_route(CURRENT_LOCATION, DESTINATION, "ESP32_data")
+def run_predictive_analysis(collection_name="ESP32_data", iterations=3):
+    global API_Instructions
+    API_Instructions = []  # reset
+
+    best_route = select_best_route(CURRENT_LOCATION, DESTINATION, collection_name)
+    
     if best_route:
         print("Initial Best Route:")
         for leg in best_route['legs']:
             for step in leg['steps']:
                 print(step['html_instructions'] if isinstance(step, dict) else step)
-        monitor_and_reroute(CURRENT_LOCATION, DESTINATION, "ESP32_data", iterations=3)
+
+        # 🚨 Don't block Flask — comment out for now:
+        # monitor_and_reroute(CURRENT_LOCATION, DESTINATION, collection_name, iterations=iterations)
+
+        return {
+            "average_solar": API_AVG_SOLAR,
+            "average_rain": API_AVG_RAIN,
+            "instructions": API_Instructions,
+            "rain_accuracy": API_RAIN_ACC,
+            "score_accuracy": API_SCORE_ACC,
+            "solar_accuracy": API_SOLAR_ACC,
+            "total_distance": API_TOTAL_DISTANCE,
+            "total_duration": API_TOTAL_DURATION
+        }
     else:
         print("No route available.")
+        return None
+
+run_predictive_analysis()
+
