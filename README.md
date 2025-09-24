@@ -1,6 +1,6 @@
 # Car Telemetry Module
 
-This module simulates **car telemetry data** (speed, fuel, engine temperature, battery level) and displays it in real-time using React.  
+This module simulates **car telemetry data** (speed, engine temperature, battery level) and displays it in real-time using React.  
 It also includes a **live-updating chart** (speed vs. time) built with Recharts.
 
 ---
