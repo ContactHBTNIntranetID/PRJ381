@@ -32,6 +32,19 @@ This project focuses on building an IoT-based system for real-time monitoring an
 
     py -m pip install bson
 
+### 🛠️ Available APIs
+
+    1. Data API, gives you all the docunents in the DB after running
+       http://127.0.0.1:5000/documets/ESP32_data 
+       
+    2. colletions API, gives you all the collections in the DB after running
+       http://127.0.0.1:5000/collections
+
+    3. Data analysis API, gives you all the data analysis in the DB after running
+       http://127.0.0.1:5000/analysis
+
+    The results will appear in JSON format.
+
 
 ## Data Cleaning Operations
 1. Handles missing data by offering multiple strategies: dropping rows with missing values or filling missing numeric and categorical data with median and mode, respectively.
