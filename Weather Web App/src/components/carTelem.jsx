@@ -55,7 +55,7 @@ export default function CarTelemetry(){
         </div>
       </div>
 
-      {/* Chart */}
+      {/* chart */}
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={history}>
