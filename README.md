@@ -45,6 +45,15 @@ This project focuses on building an IoT-based system for real-time monitoring an
 
     The results will appear in JSON format.
 
+### 🛠️ Public API (Testing in postman without running code)
+
+    Prefix: https://prj381-3-zmr5.onrender.com
+
+    Gets the data straight out of the database
+    1. https://prj381-3-zmr5.onrender.com/documets/ESP32_data 
+
+    Currently doesnt work but is meant to get all the analysis data based on where you are supposed to go
+    2. https://prj381-3-zmr5.onrender.com/analysis
 
 ## Data Cleaning Operations
 1. Handles missing data by offering multiple strategies: dropping rows with missing values or filling missing numeric and categorical data with median and mode, respectively.
