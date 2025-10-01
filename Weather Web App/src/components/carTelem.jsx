@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from "react";
 
-export default function CarTelemetry(){
+export default function carTelem(){
     const [data, setData] = useState({
         speed: 0,
         engineTemp: 0,

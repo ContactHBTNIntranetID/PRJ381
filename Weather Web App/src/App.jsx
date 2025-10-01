@@ -1,6 +1,7 @@
 
 import './App.css'
 import PretoriaMap from "./components/Maptest"
+import carTelem from "./components/carTelem"
 
 function App() {
   
