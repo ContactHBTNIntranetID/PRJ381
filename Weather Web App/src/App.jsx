@@ -1,14 +1,15 @@
 
 import './App.css'
 import PretoriaMap from "./components/Maptest"
-import carTelem from "./components/carTelem"
+import CarTelemetry from "./components/carTelemetry"
 
 function App() {
   
   return (
     <div>
-      <h1>Pretoria Map Test</h1>
+      <h1>Route Weather & Telemetry Dashboard</h1>
       <PretoriaMap />
+      <CarTelemetry />
     </div>
   );
 
