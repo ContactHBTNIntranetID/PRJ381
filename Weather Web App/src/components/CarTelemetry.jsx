@@ -99,7 +99,7 @@ export default function Dashboard() {
               <LineChart data={history}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
-                <YAxis domain={[0, 120]} />
+                <YAxis domain={[0, 200]} />
                 <Tooltip />
                 <Line
                   type="monotone"

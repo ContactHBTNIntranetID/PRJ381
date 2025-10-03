@@ -185,3 +185,7 @@ function DonutChart({ data }) {
     </div>
   );
 }
+
+function donutColor(i) {
+  return ["bg-violet-500", "bg-pink-400", "bg-sky-500"][i] || "bg-slate-400";
+}
