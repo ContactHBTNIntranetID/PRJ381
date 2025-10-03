@@ -10,7 +10,7 @@ export default function App() {
     { title: "Air Quality", value: "Good (45 AQI)", change: "+3%", gradient: "from-emerald-400 to-teal-500" },
   ];
 
-  // Example route weather data (instead of sales)
+  // Example route weather data
   const barData = useMemo(
     () => ({
       labels: ["Route A", "Route B", "Route C", "Route D"],
