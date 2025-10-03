@@ -45,5 +45,7 @@ Import the component into your main app or dashboard:
 export default App;
 
 Run the app:
-
+    npm install recharts
+    npm install 
+    npm run dev
     npm start
