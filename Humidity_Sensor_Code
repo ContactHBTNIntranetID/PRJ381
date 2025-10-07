@@ -1,0 +1,86 @@
+/*
+ * DHT11 Temperature and Humidity Sensor with ESP32
+ * Reads temperature and humidity from DHT11 sensor
+ */
+
+#include "DHT.h"
+
+// Pin Definition
+#define DHTPIN 19       // GPIO 19 connected to DHT11 data pin
+
+// DHT sensor type
+#define DHTTYPE DHT11   // DHT 11
+
+// Initialize DHT sensor
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(115200);
+  Serial.println("\nDHT11 Sensor - ESP32");
+  Serial.println("====================\n");
+  
+  // Initialize DHT sensor
+  dht.begin();
+  
+  Serial.println("Sensor initialized!");
+  Serial.println("Reading temperature and humidity...\n");
+  delay(2000);
+}
+
+void loop() {
+  // Wait a few seconds between measurements
+  delay(200);
+  
+  // Read humidity (%)
+  float humidity = dht.readHumidity();
+  
+  // Read temperature as Celsius
+  float temperatureC = dht.readTemperature();
+  
+  // Read temperature as Fahrenheit
+  float temperatureF = dht.readTemperature(true);
+  
+  // Check if any reads failed
+  if (isnan(humidity) || isnan(temperatureC) || isnan(temperatureF)) {
+    Serial.println("❌ Failed to read from DHT sensor!");
+    Serial.println("   Check wiring and connections\n");
+    return;
+  }
+  
+  // Calculate heat index in Fahrenheit
+  float heatIndexF = dht.computeHeatIndex(temperatureF, humidity);
+  
+  // Calculate heat index in Celsius
+  float heatIndexC = dht.computeHeatIndex(temperatureC, humidity, false);
+  
+  // Display readings
+  Serial.println("========== DHT11 READINGS ==========");
+  Serial.print("💧 Humidity:       ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  
+  Serial.print("🌡️  Temperature:    ");
+  Serial.print(temperatureC);
+  Serial.print(" °C  /  ");
+  Serial.print(temperatureF);
+  Serial.println(" °F");
+  
+  Serial.print("🔥 Heat Index:     ");
+  Serial.print(heatIndexC);
+  Serial.print(" °C  /  ");
+  Serial.print(heatIndexF);
+  Serial.println(" °F");
+  
+  // Comfort level indicator
+  Serial.print("😊 Comfort Level:  ");
+  if (humidity < 30) {
+    Serial.println("Too Dry");
+  } else if (humidity >= 30 && humidity <= 60) {
+    Serial.println("Comfortable");
+  } else {
+    Serial.println("Too Humid");
+  }
+  
+  Serial.println("====================================\n");
+}
