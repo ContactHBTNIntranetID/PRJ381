@@ -1,0 +1,44 @@
+/*
+ * Rain Sensor Reading with ESP32 - Digital Pin Only
+ * Reads digital output (DO) from rain sensor
+ */
+
+// Pin Definition for ESP32
+const int rainDigitalPin = 19;   // ESP32 GPIO 19 connected to rain sensor DO
+
+// Variable
+int rainDigitalValue = 0;
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(115200);
+  
+  // Configure pin
+  pinMode(rainDigitalPin, INPUT);
+  
+  Serial.println("\nRain Sensor - ESP32 (Digital Only)");
+  Serial.println("===================================");
+  Serial.println("Connected to GPIO 19");
+  Serial.println("Waiting for readings...\n");
+  delay(1000);
+}
+
+void loop() {
+  // Read digital value from DO pin
+  // LOW (0) = Rain detected
+  // HIGH (1) = No rain detected
+  rainDigitalValue = digitalRead(rainDigitalPin);
+  
+  // Display reading
+  Serial.print("Digital Reading: ");
+  Serial.print(rainDigitalValue);
+  Serial.print(" | Status: ");
+  
+  if (rainDigitalValue == LOW) {
+    Serial.println("RAIN DETECTED ☔");
+  } else {
+    Serial.println("No Rain - Dry ☀");
+  }
+  
+  delay(500);  // Read every 500ms
+}
