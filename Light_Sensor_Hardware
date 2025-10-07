@@ -1,0 +1,119 @@
+/*
+ * TSL2591 Light Sensor with ESP32
+ * Reads visible and infrared light levels
+ */
+
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include "Adafruit_TSL2591.h"
+
+// Create TSL2591 object
+Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591);
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(115200);
+  Serial.println("\nTSL2591 Light Sensor - ESP32");
+  Serial.println("=============================\n");
+  
+  // Initialize I2C
+  Wire.begin(19, 21); // SDA=GPIO19, SCL=GPIO21
+  
+  // Initialize sensor
+  if (tsl.begin()) {
+    Serial.println("✓ TSL2591 sensor found!");
+  } else {
+    Serial.println("❌ TSL2591 sensor NOT found!");
+    Serial.println("   Check wiring and I2C connections");
+    while (1); // Stop here
+  }
+  
+  // Configure sensor
+  configureSensor();
+  
+  // Display sensor info
+  displaySensorDetails();
+  
+  Serial.println("\nStarting measurements...\n");
+  delay(1000);
+}
+
+void loop() {
+  // Get light readings
+  uint32_t lum = tsl.getFullLuminosity();
+  uint16_t ir = lum >> 16;
+  uint16_t full = lum & 0xFFFF;
+  uint16_t visible = full - ir;
+  float lux = tsl.calculateLux(full, ir);
+  
+  // Display readings
+  Serial.println("========== LIGHT READINGS ==========");
+  
+  Serial.print("☀️  Lux:            ");
+  Serial.print(lux, 2);
+  Serial.println(" lux");
+  
+  Serial.print("💡 Visible Light:  ");
+  Serial.println(visible);
+  
+  Serial.print("🔴 Infrared:       ");
+  Serial.println(ir);
+  
+  Serial.print("⚪ Full Spectrum:  ");
+  Serial.println(full);
+  
+  // Light level interpretation
+  Serial.print("📊 Light Level:    ");
+  if (lux < 10) {
+    Serial.println("Very Dark");
+  } else if (lux < 50) {
+    Serial.println("Dark");
+  } else if (lux < 200) {
+    Serial.println("Dim");
+  } else if (lux < 500) {
+    Serial.println("Normal Indoor");
+  } else if (lux < 1000) {
+    Serial.println("Bright Indoor");
+  } else if (lux < 10000) {
+    Serial.println("Very Bright / Overcast");
+  } else if (lux < 25000) {
+    Serial.println("Daylight");
+  } else {
+    Serial.println("Direct Sunlight");
+  }
+  
+  Serial.println("====================================\n");
+  
+  delay(200 ); // Read every 2 seconds
+}
+
+void configureSensor() {
+  // Set gain (sensitivity)
+  // Options: TSL2591_GAIN_LOW (1x), TSL2591_GAIN_MED (25x), 
+  //          TSL2591_GAIN_HIGH (428x), TSL2591_GAIN_MAX (9876x)
+  tsl.setGain(TSL2591_GAIN_MED);
+  
+  // Set integration time (exposure time)
+  // Options: TSL2591_INTEGRATIONTIME_100MS, TSL2591_INTEGRATIONTIME_200MS,
+  //          TSL2591_INTEGRATIONTIME_300MS, TSL2591_INTEGRATIONTIME_400MS,
+  //          TSL2591_INTEGRATIONTIME_500MS, TSL2591_INTEGRATIONTIME_600MS
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+  
+  Serial.println("Sensor configured:");
+  Serial.println("  Gain: MEDIUM (25x)");
+  Serial.println("  Integration: 300ms");
+}
+
+void displaySensorDetails() {
+  sensor_t sensor;
+  tsl.getSensor(&sensor);
+  
+  Serial.println("\n----- Sensor Info -----");
+  Serial.print("Sensor:       "); Serial.println(sensor.name);
+  Serial.print("Driver Ver:   "); Serial.println(sensor.version);
+  Serial.print("Unique ID:    "); Serial.println(sensor.sensor_id);
+  Serial.print("Max Value:    "); Serial.print(sensor.max_value); Serial.println(" lux");
+  Serial.print("Min Value:    "); Serial.print(sensor.min_value); Serial.println(" lux");
+  Serial.print("Resolution:   "); Serial.print(sensor.resolution, 4); Serial.println(" lux");
+  Serial.println("-----------------------");
+}
