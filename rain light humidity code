@@ -1,0 +1,91 @@
+/*
+ * Weather Station Project with ESP32
+ * Components:
+ *  - DHT11: Temperature & Humidity Sensor
+ *  - Light Sensor (TSL2591)
+ *  - Rain Sensor (Digital)
+ */
+
+#include "DHT.h"
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include "Adafruit_TSL2591.h"
+
+// ====== Pin Definitions ======
+#define DHTPIN 23             // DHT11 data pin connected to GPIO 23
+#define DHTTYPE DHT11         // DHT11 sensor
+#define RAIN_SENSOR_PIN 19    // Rain sensor digital output connected to GPIO 19
+
+// ====== Objects ======
+DHT dht(DHTPIN, DHTTYPE);
+Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591);
+
+// ====== Variables ======
+float temperature = 0.0;
+float humidity = 0.0;
+int rainValue = 0;
+
+void setup() {
+  Serial.begin(115200);
+  delay(3000);
+  Serial.println("\nESP32 WEATHER STATION");
+  Serial.println("========================");
+
+  // Initialize I2C for TSL2591
+  Wire.begin(21, 22); // SDA=GPIO22, SCL=GPIO21
+  if (tsl.begin()) {
+    Serial.println("✓ TSL2591 found!");
+    configureSensor();
+  } else {
+    Serial.println("❌ TSL2591 NOT found!");
+  }
+
+  // Initialize DHT11 and Rain Sensor
+  dht.begin();
+  pinMode(RAIN_SENSOR_PIN, INPUT);
+
+  Serial.println("Sensors initialized successfully!\n");
+}
+
+void loop() {
+  // ====== Read DHT11 ======
+  humidity = dht.readHumidity();
+  temperature = dht.readTemperature(); // Celsius
+
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("❌ Failed to read from DHT11 sensor!");
+  }
+
+  // ====== Read TSL2591 Light Sensor ======
+  uint32_t lum = tsl.getFullLuminosity();
+  uint16_t ir = lum >> 16;
+  uint16_t full = lum & 0xFFFF;
+  uint16_t visible = full - ir;
+  float lux = tsl.calculateLux(full, ir);
+
+  String lightStatus;
+  if (lux < 10) lightStatus = "Very Dark 🌑";
+  else if (lux < 200) lightStatus = "Dim 🌤";
+  else if (lux < 1000) lightStatus = "Bright ☀️";
+  else lightStatus = "Very Bright 🔆";
+
+  // ====== Read Rain Sensor ======
+  rainValue = digitalRead(RAIN_SENSOR_PIN);
+  String rainStatus = (rainValue == LOW) ? "RAIN DETECTED ☔" : "No Rain - Dry ☀";
+
+  // ====== Display Readings ======
+  Serial.println("========== SENSOR READINGS ==========");
+  Serial.print("🌡️ Temperature: "); Serial.print(temperature); Serial.println(" °C");
+  Serial.print("💧 Humidity:    "); Serial.print(humidity); Serial.println(" %");
+  Serial.print("💡 Light (Lux): "); Serial.print(lux, 2); Serial.print(" | Status: "); Serial.println(lightStatus);
+  Serial.print("☔ Rain Sensor:  "); Serial.println(rainStatus);
+  Serial.println("=====================================\n");
+
+  delay(1000); // Update every 1 second
+}
+
+// ====== Configure TSL2591 ======
+void configureSensor() {
+  tsl.setGain(TSL2591_GAIN_MED);                // Medium gain
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS); // 300ms integration
+}
