@@ -6,7 +6,7 @@
 #include "DHT.h"
 
 // Pin Definition
-#define DHTPIN 19       // GPIO 19 connected to DHT11 data pin
+#define DHTPIN 23       // GPIO 23 connected to DHT11 data pin
 
 // DHT sensor type
 #define DHTTYPE DHT11   // DHT 11
@@ -25,7 +25,7 @@ void setup() {
   
   Serial.println("Sensor initialized!");
   Serial.println("Reading temperature and humidity...\n");
-  delay(2000);
+  delay(200);
 }
 
 void loop() {
