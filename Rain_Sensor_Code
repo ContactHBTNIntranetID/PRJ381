@@ -4,7 +4,7 @@
  */
 
 // Pin Definition for ESP32
-const int rainDigitalPin = 19;   // ESP32 GPIO 19 connected to rain sensor DO
+const int rainDigitalPin = 18;   // ESP32 GPIO 18 connected to rain sensor DO
 
 // Variable
 int rainDigitalValue = 0;
