@@ -1,0 +1,116 @@
+/*
+* ESP32 Weather Station + GPS
+* Sensors:
+*  - DHT11 (GPIO 23)
+*  - TSL2591 (I2C SDA=21, SCL=22, 3.3V logic)
+*  - Rain sensor DO (GPIO 19, 3.3V logic)
+*  - NEO-6M GPS on Serial2 (TX->GPIO16 RX->GPIO17)
+*/
+#include "DHT.h"
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include "Adafruit_TSL2591.h"
+#include <TinyGPSPlus.h>
+// ====== Pin Definitions ======
+#define DHTPIN 23
+#define DHTTYPE DHT11
+#define RAIN_SENSOR_PIN 19
+// GPS on Serial2 (ESP32)
+#define GPS_RX_PIN 16   // GPS TX -> ESP32 RX2 (GPIO16)
+#define GPS_TX_PIN 17   // GPS RX -> ESP32 TX2 (GPIO17)
+#define GPS_BAUD   9600
+// ====== Objects ======
+DHT dht(DHTPIN, DHTTYPE);
+Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591);
+TinyGPSPlus gps;
+// ====== Variables ======
+float temperature = 0.0;
+float humidity = 0.0;
+int rainValue = 0;
+void configureTSL() {
+ // Medium gain & 300ms integration are good all-rounders
+ tsl.setGain(TSL2591_GAIN_MED);
+ tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+}
+void setup() {
+ Serial.begin(115200);
+ delay(1500);
+ Serial.println("\nESP32 WEATHER STATION + GPS");
+ Serial.println("===========================");
+ // I2C: SDA=21, SCL=22  (Wire.begin(SDA, SCL))
+ Wire.begin(21, 22);
+ if (tsl.begin()) {
+   Serial.println("✓ TSL2591 found");
+   configureTSL();
+ } else {
+   Serial.println("✗ TSL2591 NOT found (check wiring, power = 3.3V)");
+ }
+ dht.begin();
+ pinMode(RAIN_SENSOR_PIN, INPUT);
+ // GPS Serial2 start
+ Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+ Serial.println("Sensors initialized!\n");
+}
+void printGPS() {
+ if (gps.location.isValid()) {
+   Serial.print("📍 GPS: ");
+   Serial.print(gps.location.lat(), 6);
+   Serial.print(", ");
+   Serial.print(gps.location.lng(), 6);
+   Serial.print("  ");
+   if (gps.date.isValid() && gps.time.isValid()) {
+     Serial.print("UTC ");
+     Serial.printf("%02d-%02d-%04d %02d:%02d:%02d",
+                   gps.date.day(), gps.date.month(), gps.date.year(),
+                   gps.time.hour(), gps.time.minute(), gps.time.second());
+   }
+   Serial.println();
+ } else {
+   Serial.println("📍 GPS: acquiring satellites...");
+ }
+}
+void readGPSStreamNonBlocking(unsigned long ms = 200) {
+ unsigned long start = millis();
+ while (millis() - start < ms) {
+   while (Serial2.available()) {
+     gps.encode(Serial2.read());
+   }
+ }
+}
+void loop() {
+ // Keep feeding TinyGPS++ briefly each loop
+ readGPSStreamNonBlocking(100);
+ // ====== Read DHT11 ======
+ humidity = dht.readHumidity();
+ temperature = dht.readTemperature(); // Celsius
+ if (isnan(humidity) || isnan(temperature)) {
+   Serial.println("✗ Failed to read DHT11");
+ }
+ // ====== Read TSL2591 ======
+ uint32_t lum = tsl.getFullLuminosity(); // blocks for integration time
+ uint16_t ir = lum >> 16;
+ uint16_t full = lum & 0xFFFF;
+ uint16_t visible = full - ir;
+ float lux = tsl.calculateLux(full, ir);
+ String lightStatus;
+ if (lux < 10)       lightStatus = "Very Dark";
+ else if (lux < 200) lightStatus = "Dim";
+ else if (lux < 1000)lightStatus = "Bright";
+ else                lightStatus = "Very Bright";
+ // ====== Read Rain Sensor (digital) ======
+ rainValue = digitalRead(RAIN_SENSOR_PIN);
+ String rainStatus = (rainValue == LOW) ? "RAIN DETECTED" : "Dry";
+ // ====== Display Readings ======
+ Serial.println("========== SENSOR READINGS ==========");
+ Serial.print("🌡️ Temp: "); Serial.print(temperature); Serial.println(" °C");
+ Serial.print("💧 Hum : "); Serial.print(humidity);    Serial.println(" %");
+ Serial.print("💡 Lux : "); Serial.print(lux, 2);
+ Serial.print("  (full="); Serial.print(full);
+ Serial.print(", ir=");    Serial.print(ir);
+ Serial.print(", vis=");   Serial.print(visible);
+ Serial.print(")  ");      Serial.println(lightStatus);
+ Serial.print("☔ Rain: "); Serial.println(rainStatus);
+ printGPS();
+ Serial.println("=====================================\n");
+ delay(1000);
+}
