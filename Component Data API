@@ -1,0 +1,240 @@
+/*
+* ESP32 Weather Station + GPS with API Integration
+* Sends real-time data to API endpoint
+*/
+#include "DHT.h"
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include "Adafruit_TSL2591.h"
+#include <TinyGPSPlus.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+// ====== WiFi Credentials ======
+const char* ssid = "YOUR_WIFI_SSID";         // Replace with your WiFi name
+const char* password = "YOUR_WIFI_PASSWORD"; // Replace with your WiFi password
+
+// ====== API Configuration ======
+const char* apiEndpoint = "http://your-api.com/api/weather"; // Replace with your API URL
+const char* apiKey = "YOUR_API_KEY"; // Optional: if your API requires authentication
+
+// ====== Pin Definitions ======
+#define DHTPIN 23
+#define DHTTYPE DHT11
+#define RAIN_SENSOR_PIN 19
+#define GPS_RX_PIN 16
+#define GPS_TX_PIN 17
+#define GPS_BAUD 9600
+
+// ====== Objects ======
+DHT dht(DHTPIN, DHTTYPE);
+Adafruit_TSL2591 tsl = Adafruit_TSL2591(2591);
+TinyGPSPlus gps;
+HTTPClient http;
+
+// ====== Variables ======
+float temperature = 0.0;
+float humidity = 0.0;
+int rainValue = 0;
+float lux = 0.0;
+unsigned long lastSendTime = 0;
+const unsigned long sendInterval = 5000; // Send every 5 seconds (adjust as needed)
+
+void configureTSL() {
+  tsl.setGain(TSL2591_GAIN_MED);
+  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
+}
+
+void connectWiFi() {
+  Serial.print("\nConnecting to WiFi");
+  WiFi.begin(ssid, password);
+  
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✓ WiFi Connected!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\n✗ WiFi Connection Failed!");
+  }
+}
+
+void sendDataToAPI() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("✗ WiFi not connected. Skipping API send.");
+    return;
+  }
+
+  // Create JSON payload
+  String jsonData = "{";
+  jsonData += "\"temperature\":" + String(temperature, 2) + ",";
+  jsonData += "\"humidity\":" + String(humidity, 2) + ",";
+  jsonData += "\"light_lux\":" + String(lux, 2) + ",";
+  jsonData += "\"rain_detected\":" + String(rainValue == LOW ? "true" : "false") + ",";
+  
+  // Add GPS data if available
+  if (gps.location.isValid()) {
+    jsonData += "\"latitude\":" + String(gps.location.lat(), 6) + ",";
+    jsonData += "\"longitude\":" + String(gps.location.lng(), 6) + ",";
+  } else {
+    jsonData += "\"latitude\":null,";
+    jsonData += "\"longitude\":null,";
+  }
+  
+  // Add timestamp if GPS has valid date/time
+  if (gps.date.isValid() && gps.time.isValid()) {
+    jsonData += "\"timestamp\":\"";
+    jsonData += String(gps.date.year()) + "-";
+    jsonData += (gps.date.month() < 10 ? "0" : "") + String(gps.date.month()) + "-";
+    jsonData += (gps.date.day() < 10 ? "0" : "") + String(gps.date.day()) + "T";
+    jsonData += (gps.time.hour() < 10 ? "0" : "") + String(gps.time.hour()) + ":";
+    jsonData += (gps.time.minute() < 10 ? "0" : "") + String(gps.time.minute()) + ":";
+    jsonData += (gps.time.second() < 10 ? "0" : "") + String(gps.time.second()) + "Z\"";
+  } else {
+    jsonData += "\"timestamp\":null";
+  }
+  
+  jsonData += "}";
+
+  // Send HTTP POST request
+  http.begin(apiEndpoint);
+  http.addHeader("Content-Type", "application/json");
+  
+  // Optional: Add API key to header if needed
+  // http.addHeader("Authorization", "Bearer " + String(apiKey));
+  // or
+  // http.addHeader("X-API-Key", apiKey);
+  
+  Serial.println("\n📤 Sending data to API...");
+  Serial.println("Payload: " + jsonData);
+  
+  int httpResponseCode = http.POST(jsonData);
+  
+  if (httpResponseCode > 0) {
+    Serial.print("✓ API Response: ");
+    Serial.print(httpResponseCode);
+    Serial.print(" - ");
+    String response = http.getString();
+    Serial.println(response);
+  } else {
+    Serial.print("✗ API Error: ");
+    Serial.println(httpResponseCode);
+    Serial.println("Error: " + http.errorToString(httpResponseCode));
+  }
+  
+  http.end();
+}
+
+void readGPSStreamNonBlocking(unsigned long ms = 200) {
+  unsigned long start = millis();
+  while (millis() - start < ms) {
+    while (Serial2.available()) {
+      gps.encode(Serial2.read());
+    }
+  }
+}
+
+void printGPS() {
+  if (gps.location.isValid()) {
+    Serial.print("📍 GPS: ");
+    Serial.print(gps.location.lat(), 6);
+    Serial.print(", ");
+    Serial.print(gps.location.lng(), 6);
+    Serial.print("  ");
+    if (gps.date.isValid() && gps.time.isValid()) {
+      Serial.print("UTC ");
+      Serial.printf("%02d-%02d-%04d %02d:%02d:%02d",
+                    gps.date.day(), gps.date.month(), gps.date.year(),
+                    gps.time.hour(), gps.time.minute(), gps.time.second());
+    }
+    Serial.println();
+  } else {
+    Serial.println("📍 GPS: acquiring satellites...");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1500);
+  Serial.println("\nESP32 WEATHER STATION + GPS + API");
+  Serial.println("==================================");
+  
+  // Connect to WiFi
+  connectWiFi();
+  
+  // Initialize I2C
+  Wire.begin(21, 22);
+  if (tsl.begin()) {
+    Serial.println("✓ TSL2591 found");
+    configureTSL();
+  } else {
+    Serial.println("✗ TSL2591 NOT found");
+  }
+  
+  dht.begin();
+  pinMode(RAIN_SENSOR_PIN, INPUT);
+  
+  // GPS Serial2 start
+  Serial2.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
+  
+  Serial.println("Sensors initialized!\n");
+}
+
+void loop() {
+  // Feed GPS data
+  readGPSStreamNonBlocking(100);
+  
+  // ====== Read DHT11 ======
+  humidity = dht.readHumidity();
+  temperature = dht.readTemperature();
+  
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("✗ Failed to read DHT11");
+    temperature = 0.0;
+    humidity = 0.0;
+  }
+  
+  // ====== Read TSL2591 ======
+  uint32_t lum = tsl.getFullLuminosity();
+  uint16_t ir = lum >> 16;
+  uint16_t full = lum & 0xFFFF;
+  uint16_t visible = full - ir;
+  lux = tsl.calculateLux(full, ir);
+  
+  String lightStatus;
+  if (lux < 10)       lightStatus = "Very Dark";
+  else if (lux < 200) lightStatus = "Dim";
+  else if (lux < 1000)lightStatus = "Bright";
+  else                lightStatus = "Very Bright";
+  
+  // ====== Read Rain Sensor ======
+  rainValue = digitalRead(RAIN_SENSOR_PIN);
+  String rainStatus = (rainValue == LOW) ? "RAIN DETECTED" : "Dry";
+  
+  // ====== Display Readings ======
+  Serial.println("========== SENSOR READINGS ==========");
+  Serial.print("🌡️ Temp: "); Serial.print(temperature); Serial.println(" °C");
+  Serial.print("💧 Hum : "); Serial.print(humidity);    Serial.println(" %");
+  Serial.print("💡 Lux : "); Serial.print(lux, 2);
+  Serial.print("  (full="); Serial.print(full);
+  Serial.print(", ir=");    Serial.print(ir);
+  Serial.print(", vis=");   Serial.print(visible);
+  Serial.print(")  ");      Serial.println(lightStatus);
+  Serial.print("☔ Rain: "); Serial.println(rainStatus);
+  printGPS();
+  Serial.println("=====================================\n");
+  
+  // ====== Send to API at intervals ======
+  if (millis() - lastSendTime >= sendInterval) {
+    sendDataToAPI();
+    lastSendTime = millis();
+  }
+  
+  delay(1000);
+}
