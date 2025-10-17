@@ -15,6 +15,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 OWM_API_KEY = "bb77e1d47d0f3700b1a27f6613c07b9b"
 GOOGLE_MAPS_API_KEY = "AIzaSyCS5zg4O0jK68tfzibpSjx-0Ou1hXrcZ9A"
 
+
 SOLAR_THRESHOLD = 800  # W/m²
 RAIN_THRESHOLD = 1     # mm
 LOW_SOLAR_DURATION = 30  # minutes
