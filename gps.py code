@@ -1,0 +1,138 @@
+import serial
+import time
+
+# --- Configuration ---
+AT_PORT = "COM10"
+BAUD_RATE = 115200
+REQUEST_INTERVAL = 3  # Request data every 3 seconds
+
+def convert_to_decimal(dmm_str, direction):
+    """Converts Degree-Minute-Minute (DMM) format string to decimal degrees."""
+    try:
+        if not dmm_str: return None
+        dmm = float(dmm_str)
+        degrees = int(dmm / 100)
+        minutes = dmm - degrees * 100
+        decimal_degrees = degrees + minutes / 60
+        if direction in ('S', 'W'):
+            decimal_degrees = -decimal_degrees
+        return decimal_degrees
+    except ValueError:
+        return None
+
+def parse_cgpsinfo(response_line):
+    """Parses the AT+CGPSINFO response line."""
+    # Example format: +CGPSINFO: 2540.927822,S,02807.814188,E,161025,095918.0,1321.4,0.0,85.6
+    
+    # Remove command prefix if present
+    if response_line.startswith('+CGPSINFO: '):
+        data = response_line[11:]
+        parts = data.split(',')
+        
+        # We need at least 4 parts for Lat/Lon
+        if len(parts) < 4:
+            return None, None, False # Not enough data
+        
+        lat_str = parts[0]
+        lat_dir = parts[1]
+        lon_str = parts[2]
+        lon_dir = parts[3]
+        
+        # Check for fix (position data will be non-empty)
+        if lat_str and lon_str:
+            lat = convert_to_decimal(lat_str, lat_dir)
+            lon = convert_to_decimal(lon_str, lon_dir)
+            return lat, lon, True
+        
+    return None, None, False # No valid fix
+
+def configure_sim7600(port, baud):
+    """Handles configuration and returns the serial object."""
+    try:
+        ser = serial.Serial(port, baud, timeout=1)
+        print(f"\n--- GPS Module Setup ---")
+        print(f"🛠️ Opened port {port} for configuration.")
+        ser.read_all() 
+        
+        # 1. Power On GPS using AT+CGPS=1 
+        command = b'AT+CGPS=1\r\n'
+        ser.write(command)
+        time.sleep(1.0) 
+        response1 = ser.readline().decode('utf-8', errors='ignore').strip()
+        response2 = ser.readline().decode('utf-8', errors='ignore').strip()
+        status_ok = 'OK' in response1 or 'OK' in response2
+        print(f"-> Sent: {command.decode().strip()}. Status: {status_ok}")
+        
+        ser.read_all() # Clear buffer
+        print(f"✅ Configuration complete. Starting data request loop.")
+        return ser
+        
+    except serial.SerialException as e:
+        print(f"❌ Cannot open port {port}: {e}")
+        return None
+
+# ----------------------------------------------------------------------
+# --- Main Execution ---
+# ----------------------------------------------------------------------
+
+ser = configure_sim7600(AT_PORT, BAUD_RATE)
+
+if ser is None:
+    exit(1)
+
+print("\n--- GPS Data Monitor ---")
+print(f"Reading GPS data (polling every {REQUEST_INTERVAL}s, Ctrl+C to stop)...")
+
+gps_fixed = False
+
+try:
+    while True:
+        # 1. Clear any old data
+        ser.read_all()
+        
+        # 2. Send the AT+CGPSINFO command
+        command = b'AT+CGPSINFO\r\n'
+        ser.write(command)
+        
+        # 3. Wait for the response (it usually comes immediately)
+        time.sleep(0.5)
+        
+        # 4. Read all lines received
+        lines = ser.read_all().decode('utf-8', errors='ignore').split('\r\n')
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Look for the line containing the GPS fix information
+            if line.startswith('+CGPSINFO:'):
+                lat, lon, is_fixed = parse_cgpsinfo(line)
+                
+                if is_fixed:
+                    if not gps_fixed:
+                        print("\n" + " " * 80 + "\r✅ GPS FIX ACQUIRED!")
+                        gps_fixed = True
+                    
+                    # Print the position on the same line, overwriting previous data
+                    print(f"🌍 Current Location: Latitude: {lat:.6f}, Longitude: {lon:.6f}", end='\r')
+                    
+                else:
+                    # No valid fix in this response
+                    if gps_fixed:
+                        print("\n" + " " * 80 + "\r⚠️ GPS Fix Lost. Reacquiring...")
+                        gps_fixed = False
+                    
+                    if not gps_fixed:
+                        print(" " * 80, end='\r') 
+                        print(f"⏳ Waiting for valid GPS fix (Polling every {REQUEST_INTERVAL}s)... ", end='\r')
+
+        # 5. Wait for the next request cycle
+        time.sleep(REQUEST_INTERVAL - 0.5) # Subtract time spent waiting for response
+        
+except KeyboardInterrupt:
+    print("\n\n🛑 Stopping GPS data reading.")
+except Exception as e:
+    print(f"\nAn unexpected error occurred: {e}")
+finally:
+    if 'ser' in locals() and ser and ser.is_open:
+        ser.close()
+        print(f"\n☑️ Closed port {AT_PORT}.")
