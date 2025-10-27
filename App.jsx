@@ -1,4 +1,13 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -91,7 +100,7 @@ export default function App() {
             ))}
           </div>
 
-          {/* CHARTS */}
+          {/* CHARTS + TELEMETRY */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Bar Chart */}
@@ -124,14 +133,90 @@ export default function App() {
               </ul>
             </section>
           </div>
+
+          {/* CAR TELEMETRY */}
+          <div className="mt-6">
+            <CarTelemetry />
+          </div>
         </main>
       </div>
     </div>
   );
 }
 
-/* COMPONENTS */
+/* ======================
+   CAR TELEMETRY SECTION
+   ====================== */
+function CarTelemetry() {
+  const [data, setData] = useState({
+    speed: 0,
+    engineTemp: 0,
+    batteryLevel: 0,
+  });
 
+  const [history, setHistory] = useState([]);
+
+  const generateTelemetry = () => {
+    return {
+      speed: parseFloat((Math.random() * 120).toFixed(1)),            // km/h
+      engineTemp: parseFloat((70 + Math.random() * 30).toFixed(1)),   // °C
+      batteryLevel: parseInt(Math.random() * 100),                    // %
+    };
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newData = generateTelemetry();
+      setData(newData);
+
+      setHistory((prev) => {
+        const updated = [...prev, { time: new Date().toLocaleTimeString(), speed: newData.speed }];
+        return updated.slice(-10);
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="p-6 bg-white rounded-2xl shadow-md w-full">
+      <h2 className="text-xl font-bold mb-4 text-gray-800">🚘 Car Telemetry</h2>
+
+      {/* Info Panel */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="p-3 bg-gray-100 rounded-lg">
+          <p className="text-gray-600">Speed</p>
+          <p className="text-lg font-semibold">{data.speed} km/h</p>
+        </div>
+        <div className="p-3 bg-gray-100 rounded-lg">
+          <p className="text-gray-600">Engine Temp</p>
+          <p className="text-lg font-semibold">{data.engineTemp} °C</p>
+        </div>
+        <div className="p-3 bg-gray-100 rounded-lg">
+          <p className="text-gray-600">Battery</p>
+          <p className="text-lg font-semibold">{data.batteryLevel}%</p>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={history}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="time" />
+            <YAxis domain={[0, 120]} label={{ value: "km/h", angle: -90, position: "insideLeft" }} />
+            <Tooltip />
+            <Line type="monotone" dataKey="speed" stroke="#2563eb" strokeWidth={2} dot={true} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/* ======================
+   REUSABLE COMPONENTS
+   ====================== */
 function UserCard() {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200 mb-2 flex items-center gap-3">
@@ -206,5 +291,7 @@ function DonutChart({ data }) {
 function donutColor(i) {
   return ["bg-yellow-500", "bg-sky-500", "bg-emerald-500", "bg-red-400"][i] || "bg-slate-400";
 }
+
+
 
 
