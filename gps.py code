@@ -1,10 +1,29 @@
 import serial
 import time
+import threading
+from flask import Flask, jsonify
 
-# --- Configuration ---
-AT_PORT = "COM10"
+# --- API & Shared Data Configuration ---
+# Global dictionary to hold the latest GPS data, accessible by both threads
+latest_gps_data = {
+    'latitude': None,
+    'longitude': None,
+    'fixed': False,
+    'error': 'Initializing...'
+}
+# Lock for safe concurrent access to the shared data (good practice)
+data_lock = threading.Lock()
+
+# --- Serial Configuration (Adjust as needed) ---
+# NOTE: Ensure this port and baud rate match your SIM7600 module
+AT_PORT = "COM13" 
 BAUD_RATE = 115200
-REQUEST_INTERVAL = 3  # Request data every 3 seconds
+REQUEST_INTERVAL = 3    # Request data every 3 seconds
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# --- Helper Functions ---
 
 def convert_to_decimal(dmm_str, direction):
     """Converts Degree-Minute-Minute (DMM) format string to decimal degrees."""
@@ -24,7 +43,6 @@ def parse_cgpsinfo(response_line):
     """Parses the AT+CGPSINFO response line."""
     # Example format: +CGPSINFO: 2540.927822,S,02807.814188,E,161025,095918.0,1321.4,0.0,85.6
     
-    # Remove command prefix if present
     if response_line.startswith('+CGPSINFO: '):
         data = response_line[11:]
         parts = data.split(',')
@@ -58,81 +76,110 @@ def configure_sim7600(port, baud):
         command = b'AT+CGPS=1\r\n'
         ser.write(command)
         time.sleep(1.0) 
-        response1 = ser.readline().decode('utf-8', errors='ignore').strip()
-        response2 = ser.readline().decode('utf-8', errors='ignore').strip()
-        status_ok = 'OK' in response1 or 'OK' in response2
-        print(f"-> Sent: {command.decode().strip()}. Status: {status_ok}")
-        
         ser.read_all() # Clear buffer
-        print(f"✅ Configuration complete. Starting data request loop.")
+        
+        print(f"✅ Configuration complete. Starting data request thread.")
         return ser
         
     except serial.SerialException as e:
         print(f"❌ Cannot open port {port}: {e}")
+        # Update global state with error
+        with data_lock:
+            latest_gps_data['error'] = f"Serial Port Error: {e}"
         return None
 
-# ----------------------------------------------------------------------
-# --- Main Execution ---
-# ----------------------------------------------------------------------
+# --- Background Polling Thread Function ---
 
-ser = configure_sim7600(AT_PORT, BAUD_RATE)
+def gps_polling_loop(ser):
+    """The main loop that runs in a separate thread to poll the GPS module."""
+    if ser is None:
+        return
 
-if ser is None:
-    exit(1)
-
-print("\n--- GPS Data Monitor ---")
-print(f"Reading GPS data (polling every {REQUEST_INTERVAL}s, Ctrl+C to stop)...")
-
-gps_fixed = False
-
-try:
-    while True:
-        # 1. Clear any old data
-        ser.read_all()
-        
-        # 2. Send the AT+CGPSINFO command
-        command = b'AT+CGPSINFO\r\n'
-        ser.write(command)
-        
-        # 3. Wait for the response (it usually comes immediately)
-        time.sleep(0.5)
-        
-        # 4. Read all lines received
-        lines = ser.read_all().decode('utf-8', errors='ignore').split('\r\n')
-        
-        for line in lines:
-            line = line.strip()
+    print("\n--- GPS Polling Thread Started ---")
+    
+    try:
+        while True:
+            ser.read_all()
+            command = b'AT+CGPSINFO\r\n'
+            ser.write(command)
+            time.sleep(0.5)
             
-            # Look for the line containing the GPS fix information
-            if line.startswith('+CGPSINFO:'):
-                lat, lon, is_fixed = parse_cgpsinfo(line)
+            lines = ser.read_all().decode('utf-8', errors='ignore').split('\r\n')
+            current_fix = False 
+            
+            for line in lines:
+                line = line.strip()
                 
-                if is_fixed:
-                    if not gps_fixed:
-                        print("\n" + " " * 80 + "\r✅ GPS FIX ACQUIRED!")
-                        gps_fixed = True
+                if line.startswith('+CGPSINFO:'):
+                    lat, lon, is_fixed = parse_cgpsinfo(line)
                     
-                    # Print the position on the same line, overwriting previous data
-                    print(f"🌍 Current Location: Latitude: {lat:.6f}, Longitude: {lon:.6f}", end='\r')
-                    
-                else:
-                    # No valid fix in this response
-                    if gps_fixed:
-                        print("\n" + " " * 80 + "\r⚠️ GPS Fix Lost. Reacquiring...")
-                        gps_fixed = False
-                    
-                    if not gps_fixed:
-                        print(" " * 80, end='\r') 
-                        print(f"⏳ Waiting for valid GPS fix (Polling every {REQUEST_INTERVAL}s)... ", end='\r')
+                    if is_fixed:
+                        current_fix = True
+                        
+                        # Use the lock when writing to the shared global dictionary
+                        with data_lock:
+                            latest_gps_data['latitude'] = lat
+                            latest_gps_data['longitude'] = lon
+                            latest_gps_data['fixed'] = True
+                            latest_gps_data['error'] = None
+                        
+                        print(f"Thread: FIX. Lat: {lat:.4f}, Lon: {lon:.4f} @ {time.strftime('%H:%M:%S')}", end='\r')
+                        break # Found the fix, stop parsing lines
+            
+            if not current_fix:
+                # Use the lock when writing to the shared global dictionary
+                with data_lock:
+                    latest_gps_data['fixed'] = False
+                    latest_gps_data['error'] = "Waiting for GPS fix..."
+                print(f"Thread: NO FIX. {latest_gps_data['error']} (Polling every {REQUEST_INTERVAL}s)   ", end='\r')
+            
+            # 5. Wait for the next request cycle
+            time.sleep(REQUEST_INTERVAL - 0.5) 
+            
+    except Exception as e:
+        print(f"\n[ERROR] GPS Polling Thread encountered an error: {e}")
+        with data_lock:
+            latest_gps_data['fixed'] = False
+            latest_gps_data['error'] = f"Polling Thread Failed: {e}"
+    finally:
+        if 'ser' in locals() and ser and ser.is_open:
+            ser.close()
+            print(f"\n☑️ Closed port {AT_PORT} in thread.")
 
-        # 5. Wait for the next request cycle
-        time.sleep(REQUEST_INTERVAL - 0.5) # Subtract time spent waiting for response
-        
-except KeyboardInterrupt:
-    print("\n\n🛑 Stopping GPS data reading.")
-except Exception as e:
-    print(f"\nAn unexpected error occurred: {e}")
-finally:
-    if 'ser' in locals() and ser and ser.is_open:
-        ser.close()
-        print(f"\n☑️ Closed port {AT_PORT}.")
+# --- Flask API Endpoint ---
+
+@app.route('/gps/latest', methods=['GET'])
+def get_latest_gps():
+    """
+    Returns the latest GPS coordinates stored by the background thread.
+    """
+    # Use the lock when reading from the shared global dictionary
+    with data_lock:
+        response_data = {
+            "status": "OK" if latest_gps_data['fixed'] else "NO_FIX",
+            "latitude": latest_gps_data['latitude'],
+            "longitude": latest_gps_data['longitude'],
+            "error_message": latest_gps_data['error']
+        }
+    return jsonify(response_data)
+
+# --- Main Execution Block ---
+
+if __name__ == '__main__':
+    # 1. Configure the Serial Port
+    serial_port = configure_sim7600(AT_PORT, BAUD_RATE)
+
+    if serial_port:
+        # 2. Start the Polling Thread
+        polling_thread = threading.Thread(target=gps_polling_loop, args=(serial_port,))
+        polling_thread.daemon = True # Allows main program to exit even if thread is running
+        polling_thread.start()
+
+        # 3. Start the Flask Web Server
+        print("\n--- Flask Server Started ---")
+        print("🌐 API is now running. Endpoint: http://<Your IP Address>:5000/gps/latest")
+        print("Ensure your firewall allows port 5000 traffic.")
+        # Host 0.0.0.0 is crucial for access from the other laptop on the same network
+        app.run(host='0.0.0.0', port=5000, debug=False)
+    else:
+        print("\nAPI cannot start due to serial port configuration failure.")
