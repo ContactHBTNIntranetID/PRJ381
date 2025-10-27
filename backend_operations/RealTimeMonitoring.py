@@ -16,11 +16,37 @@ import sys
 import threading
 from flask import Flask, jsonify
 
+# -------------------- DESTINATION FETCH --------------------
+LOCAL_API_URL = "http://192.168.34.58:5000/gps/latest"
+DESTINATION_REFRESH_INTERVAL = 5  # seconds
+
+def fetch_destination_from_api():
+    """
+    Fetch destination coordinates from the local GPS API.
+    Expected JSON structure:
+    {
+        "latitude": -26.1222561,
+        "longitude": 28.0347158
+    }
+    """
+    try:
+        r = requests.get(LOCAL_API_URL, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        lat = float(data.get("latitude", -26.1222561))
+        lon = float(data.get("longitude", 28.0347158))
+        print(f"[INFO] Destination refreshed from API: ({lat}, {lon})")
+        return (lat, lon)
+    except Exception as e:
+        print(f"[WARN] Could not fetch destination from API: {e}")
+        # fallback coordinates
+        return (-26.1222561, 28.0347158)
+
 # -------------------- CONFIG --------------------
 SERIAL_PORT = "COM7"            # CHANGE to your ESP32 serial port
 BAUD_RATE = 115200
 GOOGLE_API_KEY = "AIzaSyCS5zg4O0jK68tfzibpSjx-0Ou1hXrcZ9A"   # CHANGE to your API key
-DESTINATION = (-26.1222561, 28.0347158)      # (lat, lon) destination
+DESTINATION = fetch_destination_from_api()      # (lat, lon) destination
 HUMIDITY_THRESHOLD = 80      # percent -> treat as "likely rain"
 LIGHT_THRESHOLD = 300        # lux -> low solar irradiance
 MIN_RECALC_SECONDS = 10      # minimum seconds between route requests
@@ -229,6 +255,12 @@ def start_local_api(host="0.0.0.0", port=5000):
     print(f"[INFO] Starting local API on http://{host}:{port}/api/sensors")
     app.run(host=host, port=port, debug=False, use_reloader=False)
 
+def destination_updater():
+    global DESTINATION
+    while True:
+        DESTINATION = fetch_destination_from_api()
+        time.sleep(DESTINATION_REFRESH_INTERVAL)
+
 # -------------------- MAIN LOOP --------------------
 def main_loop():
     global temperature, humidity, lux, rain, latitude, longitude
@@ -266,7 +298,7 @@ def main_loop():
 
                 if (moved or triggers_changed) and time_ok:
                     print("[INFO] Fetching route alternatives from Google...")
-                    routes_json = fetch_routes(origin, DESTINATION)
+                    routes_json = fetch_routes(DESTINATION, origin)
                     last_route_fetch_time = now
                     last_origin = origin
                     last_trigger_state = triggers
@@ -296,8 +328,12 @@ if __name__ == "__main__":
     if GOOGLE_API_KEY == "AIzaSyCS5zg4O0jK68tfzibpSjx-0Ou1hXrcZ9A":
         print("[WARNING] Please set your GOOGLE_API_KEY in the script before running.")
 
-    # Start local API in a separate thread
+    # Start local API
     threading.Thread(target=start_local_api, daemon=True).start()
+
+    # Start background destination refresher
+    threading.Thread(target=destination_updater, daemon=True).start()
 
     print("Starting routing engine. Press Ctrl+C to stop.")
     main_loop()
+
